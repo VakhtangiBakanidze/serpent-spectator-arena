@@ -43,6 +43,6 @@ describe("mock api", () => {
   it("returns live players with game states", async () => {
     const p = await api.getLivePlayers();
     expect(p.length).toBeGreaterThan(0);
-    expect(p[0].state.alive).toBe(true);
+    expect(p[0]?.state.alive).toBe(true);
   });
 });

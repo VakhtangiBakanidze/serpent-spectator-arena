@@ -119,7 +119,7 @@ export function botDirection(state: GameState): Dir {
     }
     return Math.abs(x - state.food.x) + Math.abs(y - state.food.y);
   };
-  return safe.sort((a, b) => dist(a) - dist(b))[0];
+  return safe.sort((a, b) => dist(a) - dist(b))[0] ?? state.dir;
 }
 
 export const KEY_TO_DIR: Record<string, Dir> = {
