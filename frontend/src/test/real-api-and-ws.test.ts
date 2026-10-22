@@ -26,7 +26,11 @@ describe("realApi HTTP client", () => {
       expect.objectContaining({
         method: "POST",
         credentials: "include",
-        body: JSON.stringify({ username: "tester", email: "tester@snake.dev", password: "password123" }),
+        body: JSON.stringify({
+          username: "tester",
+          email: "tester@snake.dev",
+          password: "password123",
+        }),
       }),
     );
   });
@@ -113,19 +117,22 @@ describe("realApi HTTP client", () => {
 });
 
 describe("useWebSocketLivePlayers hook", () => {
-  let mockWsInstance: any;
+  class MockWebSocket {
+    static currentInstance: MockWebSocket | null = null;
+    url: string;
+    onmessage: ((ev: MessageEvent) => void) | null = null;
+    onclose: ((ev: CloseEvent) => void) | null = null;
+    onerror: ((ev: Event) => void) | null = null;
+    close = vi.fn();
+
+    constructor(url: string) {
+      this.url = url;
+      MockWebSocket.currentInstance = this;
+    }
+  }
 
   beforeEach(() => {
-    class MockWebSocket {
-      onmessage: ((ev: any) => void) | null = null;
-      onclose: ((ev: any) => void) | null = null;
-      onerror: ((ev: any) => void) | null = null;
-      close = vi.fn();
-      constructor(public url: string) {
-        mockWsInstance = this;
-      }
-    }
-
+    MockWebSocket.currentInstance = null;
     vi.stubGlobal("WebSocket", MockWebSocket);
   });
 
@@ -138,7 +145,9 @@ describe("useWebSocketLivePlayers hook", () => {
     const { result, unmount } = renderHook(() => useWebSocketLivePlayers());
 
     expect(result.current).toEqual([]);
-    expect(mockWsInstance.url).toBe("ws://localhost:8000/ws/live");
+    const ws = MockWebSocket.currentInstance;
+    expect(ws).not.toBeNull();
+    expect(ws?.url).toBe("ws://localhost:8000/ws/live");
 
     const fakePlayers = [
       {
@@ -161,9 +170,9 @@ describe("useWebSocketLivePlayers hook", () => {
 
     // Simulate server sending snapshot
     act(() => {
-      mockWsInstance.onmessage?.({
+      ws?.onmessage?.({
         data: JSON.stringify({ type: "snapshot", players: fakePlayers }),
-      });
+      } as MessageEvent);
     });
 
     expect(result.current).toEqual(fakePlayers);
@@ -187,9 +196,9 @@ describe("useWebSocketLivePlayers hook", () => {
     };
 
     act(() => {
-      mockWsInstance.onmessage?.({
+      ws?.onmessage?.({
         data: JSON.stringify({ type: "player_joined", player: newPlayer }),
-      });
+      } as MessageEvent);
     });
 
     expect(result.current.length).toBe(2);
@@ -197,15 +206,15 @@ describe("useWebSocketLivePlayers hook", () => {
 
     // Simulate player_left
     act(() => {
-      mockWsInstance.onmessage?.({
+      ws?.onmessage?.({
         data: JSON.stringify({ type: "player_left", playerId: "p1" }),
-      });
+      } as MessageEvent);
     });
 
     expect(result.current.length).toBe(1);
-    expect(result.current[0].id).toBe("p2");
+    expect(result.current[0]?.id).toBe("p2");
 
     unmount();
-    expect(mockWsInstance.close).toHaveBeenCalled();
+    expect(ws?.close).toHaveBeenCalled();
   });
 });
