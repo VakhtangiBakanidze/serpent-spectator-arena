@@ -84,7 +84,7 @@ export function SnakeGame() {
                 </p>
               </>
             ) : null}
-            <button className="btn-primary" onClick={() => (state.alive && state.score === 0 && state.snake.length === 3 ? setRunning(true) : !state.alive ? restart() : setRunning(true))}>
+            <button className="btn-primary" onClick={() => (state.alive ? setRunning(true) : restart())}>
               {!state.alive ? "Play again" : state.score === 0 ? "Start" : "Resume"}
             </button>
             <p className="text-xs text-muted-foreground">Arrows / WASD to move · Space to pause</p>
