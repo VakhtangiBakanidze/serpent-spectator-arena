@@ -49,3 +49,4 @@ class TestLiveWebSocket:
                 assert "username" in player
                 assert "mode" in player
                 assert "state" in player
+

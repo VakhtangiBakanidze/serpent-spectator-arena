@@ -126,3 +126,4 @@ SECRET_KEY=change-me
 | `WS` | `/ws/live` | — | Real-time game state stream (140 ms ticks) |
 
 Full schema reference: see [`openapi.yaml`](../openapi.yaml) at the repo root.
+

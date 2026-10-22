@@ -51,3 +51,4 @@ def get_current_user(session: str | None = Cookie(default=None, alias=SESSION_CO
             return User(username=record["username"], email=record["email"])
 
     raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
+

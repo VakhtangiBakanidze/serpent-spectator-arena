@@ -39,3 +39,4 @@ def submit_score(
     }
     db.scores.append(entry)
     return ScoreEntry(**entry)
+

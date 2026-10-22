@@ -80,3 +80,4 @@ class TestMe:
     def test_me_unauthenticated(self, client: TestClient):
         resp = client.get("/auth/me")
         assert resp.status_code == 401
+

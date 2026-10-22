@@ -29,3 +29,4 @@ def auth_client(client: TestClient):
     resp = client.post("/auth/signup", json=payload)
     assert resp.status_code == 201
     return client
+

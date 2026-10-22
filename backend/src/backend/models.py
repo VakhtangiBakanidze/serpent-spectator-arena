@@ -71,3 +71,4 @@ class LogInRequest(BaseModel):
 class SubmitScoreRequest(BaseModel):
     score: int = Field(ge=0)
     mode: Mode
+

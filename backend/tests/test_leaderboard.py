@@ -82,3 +82,4 @@ class TestSubmitScore:
         client.post("/auth/signup", json=SIGNUP_PAYLOAD)
         resp = client.post("/scores", json={"score": 10, "mode": "invalid"})
         assert resp.status_code == 422
+

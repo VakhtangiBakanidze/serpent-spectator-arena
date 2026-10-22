@@ -77,3 +77,4 @@ async def ws_live(websocket: WebSocket) -> None:
             data = await websocket.receive_text()
     except WebSocketDisconnect:
         manager.disconnect(websocket)
+
