@@ -34,7 +34,7 @@ export function randomFood(
     for (let x = 0; x < width; x++)
       if (!snake.some((s) => s.x === x && s.y === y)) free.push({ x, y });
   if (free.length === 0) return { x: -1, y: -1 };
-  return free[Math.floor(rand() * free.length)];
+  return free[Math.floor(rand() * free.length)]!;
 }
 
 export function createGame(
@@ -73,7 +73,7 @@ export function step(state: GameState, rand: () => number = Math.random): GameSt
   if (!state.alive) return state;
   const dir = state.pendingDir;
   const d = DELTA[dir];
-  const head = state.snake[0];
+  const head = state.snake[0]!;
   let next = { x: head.x + d.x, y: head.y + d.y };
 
   const outside = next.x < 0 || next.y < 0 || next.x >= state.width || next.y >= state.height;
@@ -102,7 +102,7 @@ export function step(state: GameState, rand: () => number = Math.random): GameSt
 
 /** Simple bot used to simulate other players: heads toward food, avoids death. */
 export function botDirection(state: GameState): Dir {
-  const head = state.snake[0];
+  const head = state.snake[0]!;
   const dirs: Dir[] = ["up", "down", "left", "right"];
   const safe = dirs.filter((d) => {
     if (OPPOSITE[state.dir] === d) return false;
