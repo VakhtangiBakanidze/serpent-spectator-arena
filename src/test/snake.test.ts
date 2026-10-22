@@ -64,12 +64,12 @@ describe("snake engine", () => {
   });
 
   it("food never spawns on the snake", () => {
-    const snake = [{ x: 0, y: 0 }, { x: 1, y: 0 }, { x: 2, y: 0 }];
+    const snake = [{ x: 0, y: 0 }, { x: 1, y: 0 }, { x: 0, y: 1 }];
     for (let i = 0; i < 20; i++) {
       const f = randomFood(snake, 2, 2, Math.random);
       expect(f).toEqual({ x: 1, y: 1 });
     }
-    expect(randomFood(snake, 3, 1)).toEqual({ x: -1, y: -1 });
+    expect(randomFood([{ x: 0, y: 0 }, { x: 1, y: 0 }], 2, 1)).toEqual({ x: -1, y: -1 });
   });
 
   it("bot heads toward food and avoids walls", () => {
