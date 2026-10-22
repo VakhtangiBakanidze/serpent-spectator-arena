@@ -1,7 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
-import { api, type LivePlayer } from "@/lib/api";
-import { botDirection, changeDirection, createGame, step } from "@/lib/snake";
+import { useState } from "react";
+import { useWebSocketLivePlayers } from "@/lib/websocket";
 import { Board } from "@/components/Board";
 
 export const Route = createFileRoute("/watch")({
@@ -17,55 +16,39 @@ export const Route = createFileRoute("/watch")({
 });
 
 function Watch() {
-  const [players, setPlayers] = useState<LivePlayer[]>([]);
-  const [selected, setSelected] = useState<string | null>(null);
+  const players = useWebSocketLivePlayers();
+  const [selectedId, setSelectedId] = useState<string | null>(null);
 
-  useEffect(() => {
-    api.getLivePlayers().then((p) => {
-      setPlayers(p);
-      setSelected(p[0]?.id ?? null);
-    });
-  }, []);
-
-  // Simulate every live player with the bot.
-  useEffect(() => {
-    const t = setInterval(() => {
-      setPlayers((ps) =>
-        ps.map((p) => {
-          const s = p.state.alive ? step(changeDirection(p.state, botDirection(p.state))) : createGame(p.mode);
-          return { ...p, state: s };
-        }),
-      );
-    }, 140);
-    return () => clearInterval(t);
-  }, []);
-
-  const current = players.find((p) => p.id === selected);
+  const selected = players.find((p) => p.id === (selectedId ?? players[0]?.id));
 
   return (
     <main className="mx-auto flex max-w-5xl flex-col gap-6 px-4 py-10 md:flex-row">
       <aside className="panel md:w-60">
         <h2 className="mb-3 font-display text-sm text-accent">LIVE NOW</h2>
-        <ul className="flex flex-col gap-2">
-          {players.map((p) => (
-            <li key={p.id}>
-              <button
-                onClick={() => setSelected(p.id)}
-                className={`w-full text-left ${p.id === selected ? "btn-primary" : "btn-ghost"}`}
-              >
-                <span className="live-dot" /> {p.username} · {p.state.score}
-              </button>
-            </li>
-          ))}
-        </ul>
+        {players.length === 0 ? (
+          <p className="text-sm text-muted-foreground">Connecting…</p>
+        ) : (
+          <ul className="flex flex-col gap-2">
+            {players.map((p) => (
+              <li key={p.id}>
+                <button
+                  onClick={() => setSelectedId(p.id)}
+                  className={`w-full text-left ${p.id === selected?.id ? "btn-primary" : "btn-ghost"}`}
+                >
+                  <span className="live-dot" /> {p.username} · {p.state.score}
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
       </aside>
-      {current && (
+      {selected && (
         <section className="flex flex-col items-center gap-3">
           <p className="font-display text-sm">
-            WATCHING <span className="text-primary">{current.username}</span> · {current.mode} · SCORE{" "}
-            <span className="text-primary">{current.state.score}</span>
+            WATCHING <span className="text-primary">{selected.username}</span> · {selected.mode} · SCORE{" "}
+            <span className="text-primary">{selected.state.score}</span>
           </p>
-          <Board state={current.state} />
+          <Board state={selected.state} />
         </section>
       )}
     </main>

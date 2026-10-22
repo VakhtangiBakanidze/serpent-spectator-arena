@@ -156,4 +156,5 @@ const realApi = {
 // Export — use mock in Vitest, real otherwise
 // ---------------------------------------------------------------------------
 
+export { mockApi, realApi };
 export const api = import.meta.env.MODE === "test" ? mockApi : realApi;
