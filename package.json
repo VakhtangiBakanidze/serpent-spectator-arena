@@ -1,0 +1,13 @@
+{
+  "name": "serpent-spectator-arena",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "concurrently --kill-others -n \"backend,frontend\" -c \"blue,green\" \"cd backend && uv run uvicorn backend.main:app --reload\" \"cd frontend && npm run dev\"",
+    "dev:backend": "cd backend && uv run uvicorn backend.main:app --reload",
+    "dev:frontend": "cd frontend && npm run dev"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  }
+}
