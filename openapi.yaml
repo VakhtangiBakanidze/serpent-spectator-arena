@@ -1,0 +1,452 @@
+openapi: 3.1.0
+info:
+  title: Serpent Spectator Arena API
+  description: |
+    REST + WebSocket API for the Snake multiplayer spectator game.
+    Authentication uses HTTP-only session cookies (no token header needed after login).
+  version: 1.0.0
+  contact:
+    name: Serpent Spectator Arena
+
+servers:
+  - url: http://localhost:8000
+    description: Local development
+  - url: https://api.serpent-arena.example.com
+    description: Production
+
+# ─────────────────────────────────────────
+# Reusable schemas
+# ─────────────────────────────────────────
+components:
+  schemas:
+
+    Mode:
+      type: string
+      enum: [walls, pass-through]
+      description: Snake game mode — walls kills on boundary hit; pass-through wraps around.
+      example: walls
+
+    Direction:
+      type: string
+      enum: [up, down, left, right]
+
+    Point:
+      type: object
+      required: [x, y]
+      properties:
+        x:
+          type: integer
+          minimum: 0
+        y:
+          type: integer
+          minimum: 0
+
+    GameState:
+      type: object
+      required: [width, height, snake, dir, pendingDir, food, score, alive, mode]
+      properties:
+        width:
+          type: integer
+          example: 20
+        height:
+          type: integer
+          example: 20
+        snake:
+          type: array
+          items:
+            $ref: "#/components/schemas/Point"
+          description: Ordered list of occupied cells — index 0 is the head.
+        dir:
+          $ref: "#/components/schemas/Direction"
+        pendingDir:
+          $ref: "#/components/schemas/Direction"
+        food:
+          $ref: "#/components/schemas/Point"
+        score:
+          type: integer
+          minimum: 0
+          example: 120
+        alive:
+          type: boolean
+          example: true
+        mode:
+          $ref: "#/components/schemas/Mode"
+
+    User:
+      type: object
+      required: [username, email]
+      properties:
+        username:
+          type: string
+          minLength: 3
+          example: neonviper
+        email:
+          type: string
+          format: email
+          example: neonviper@snake.dev
+
+    ScoreEntry:
+      type: object
+      required: [username, score, mode, date]
+      properties:
+        username:
+          type: string
+          example: neonviper
+        score:
+          type: integer
+          minimum: 0
+          example: 420
+        mode:
+          $ref: "#/components/schemas/Mode"
+        date:
+          type: string
+          format: date
+          description: ISO 8601 calendar date on which the score was recorded.
+          example: "2026-10-20"
+
+    LivePlayer:
+      type: object
+      required: [id, username, mode, state]
+      properties:
+        id:
+          type: string
+          description: Stable session identifier for this active player.
+          example: p1
+        username:
+          type: string
+          example: neonviper
+        mode:
+          $ref: "#/components/schemas/Mode"
+        state:
+          $ref: "#/components/schemas/GameState"
+
+    # ── Request bodies ──────────────────────────────────────
+
+    SignUpRequest:
+      type: object
+      required: [username, email, password]
+      properties:
+        username:
+          type: string
+          minLength: 3
+          example: neonviper
+        email:
+          type: string
+          format: email
+          example: neonviper@snake.dev
+        password:
+          type: string
+          minLength: 6
+          format: password
+          example: s3cr3tPass
+
+    LogInRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+          example: demo@snake.dev
+        password:
+          type: string
+          format: password
+          example: demo123
+
+    SubmitScoreRequest:
+      type: object
+      required: [score, mode]
+      properties:
+        score:
+          type: integer
+          minimum: 0
+          example: 350
+        mode:
+          $ref: "#/components/schemas/Mode"
+
+    # ── Error ───────────────────────────────────────────────
+
+    ErrorResponse:
+      type: object
+      required: [message]
+      properties:
+        message:
+          type: string
+          example: Username already taken
+
+  # ── Security ──────────────────────────────────────────────
+  securitySchemes:
+    sessionCookie:
+      type: apiKey
+      in: cookie
+      name: session
+      description: |
+        HTTP-only session cookie set by the server on successful login/signup.
+        All protected endpoints require this cookie.
+
+  # ── Responses ─────────────────────────────────────────────
+  responses:
+    Unauthorized:
+      description: Not authenticated — log in first.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            message: Must be logged in to submit a score
+
+    UnprocessableEntity:
+      description: Validation error in the request body.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+
+# ─────────────────────────────────────────
+# Paths
+# ─────────────────────────────────────────
+paths:
+
+  # ── Auth ────────────────────────────────────────────────────
+
+  /auth/signup:
+    post:
+      operationId: signUp
+      summary: Register a new account
+      tags: [Auth]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SignUpRequest"
+      responses:
+        "201":
+          description: Account created and session started.
+          headers:
+            Set-Cookie:
+              description: HTTP-only session cookie.
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "409":
+          description: Username or email already registered.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              examples:
+                usernameTaken:
+                  value:
+                    message: Username already taken
+                emailTaken:
+                  value:
+                    message: Email already registered
+        "422":
+          $ref: "#/components/responses/UnprocessableEntity"
+
+  /auth/login:
+    post:
+      operationId: logIn
+      summary: Authenticate with email + password
+      tags: [Auth]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LogInRequest"
+      responses:
+        "200":
+          description: Login successful; session cookie is set.
+          headers:
+            Set-Cookie:
+              description: HTTP-only session cookie.
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "401":
+          description: Invalid credentials.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                message: Invalid email or password
+
+  /auth/logout:
+    post:
+      operationId: logOut
+      summary: End the current session
+      tags: [Auth]
+      security:
+        - sessionCookie: []
+      responses:
+        "204":
+          description: Session ended; cookie cleared.
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /auth/me:
+    get:
+      operationId: getCurrentUser
+      summary: Return the currently authenticated user
+      description: Returns the user object when a valid session exists, or null-equivalent (404) when not logged in.
+      tags: [Auth]
+      security:
+        - sessionCookie: []
+      responses:
+        "200":
+          description: Authenticated user.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "401":
+          description: No active session.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                message: Not authenticated
+
+  # ── Leaderboard ─────────────────────────────────────────────
+
+  /leaderboard:
+    get:
+      operationId: getLeaderboard
+      summary: Top 10 scores, optionally filtered by game mode
+      tags: [Leaderboard]
+      parameters:
+        - name: mode
+          in: query
+          required: false
+          description: Filter results to a specific game mode. Omit to retrieve all modes.
+          schema:
+            $ref: "#/components/schemas/Mode"
+      responses:
+        "200":
+          description: Sorted list of up to 10 top scores (descending by score).
+          content:
+            application/json:
+              schema:
+                type: array
+                maxItems: 10
+                items:
+                  $ref: "#/components/schemas/ScoreEntry"
+              example:
+                - username: neonviper
+                  score: 420
+                  mode: walls
+                  date: "2026-10-20"
+                - username: pixelpython
+                  score: 380
+                  mode: pass-through
+                  date: "2026-10-19"
+
+  /scores:
+    post:
+      operationId: submitScore
+      summary: Submit a completed game score
+      description: |
+        Persists a score for the currently authenticated user.
+        Requires an active session — anonymous scores are rejected.
+      tags: [Leaderboard]
+      security:
+        - sessionCookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SubmitScoreRequest"
+      responses:
+        "201":
+          description: Score recorded.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ScoreEntry"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "422":
+          $ref: "#/components/responses/UnprocessableEntity"
+
+  # ── Live Players ─────────────────────────────────────────────
+
+  /live:
+    get:
+      operationId: getLivePlayers
+      summary: List currently active players with their game state
+      description: |
+        Returns a snapshot of every player currently in an active game session,
+        including their full `GameState`.  
+        For real-time updates use the WebSocket endpoint `/ws/live`.
+      tags: [Live]
+      responses:
+        "200":
+          description: Snapshot of all live players.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/LivePlayer"
+              example:
+                - id: p1
+                  username: neonviper
+                  mode: walls
+                  state:
+                    width: 20
+                    height: 20
+                    snake: [{x: 10, y: 10}, {x: 9, y: 10}, {x: 8, y: 10}]
+                    dir: right
+                    pendingDir: right
+                    food: {x: 15, y: 7}
+                    score: 0
+                    alive: true
+                    mode: walls
+
+  # ── WebSocket (live spectator stream) ────────────────────────
+
+  /ws/live:
+    get:
+      operationId: wsLivePlayers
+      summary: WebSocket — real-time game state stream for all live players
+      description: |
+        Upgrade to a WebSocket connection to receive continuous game state updates.
+
+        **Connection flow**
+        1. Client sends an HTTP Upgrade request to `/ws/live`.
+        2. Server pushes a `snapshot` event immediately with all current players.
+        3. Server pushes `tick` events at ~140 ms intervals with updated states.
+        4. Server pushes `player_joined` / `player_left` events as players connect or disconnect.
+
+        **Message format (server → client)**  
+        All messages are JSON with a top-level `type` field:
+
+        ```json
+        // Initial snapshot
+        { "type": "snapshot", "players": [LivePlayer, ...] }
+
+        // Periodic tick — full updated state of every player
+        { "type": "tick", "players": [LivePlayer, ...] }
+
+        // A new player started a game
+        { "type": "player_joined", "player": LivePlayer }
+
+        // A player's session ended
+        { "type": "player_left", "playerId": "p1" }
+        ```
+      tags: [Live]
+      responses:
+        "101":
+          description: Switching Protocols — WebSocket connection established.
+

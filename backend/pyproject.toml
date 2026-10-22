@@ -7,7 +7,12 @@ authors = [
     { name = "vakhtangi", email = "vakhtangibakanidze@gmail.com" }
 ]
 requires-python = ">=3.13"
-dependencies = []
+dependencies = [
+    "fastapi>=0.159.1",
+    "passlib[bcrypt]>=1.7.4",
+    "python-multipart>=0.0.32",
+    "uvicorn[standard]>=0.54.0",
+]
 
 [project.scripts]
 backend = "backend:main"
@@ -15,3 +20,11 @@ backend = "backend:main"
 [build-system]
 requires = ["uv_build>=0.12.9,<0.13.0"]
 build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "anyio>=4.15.1",
+    "httpx>=0.28.1",
+    "pytest>=9.1.1",
+    "pytest-asyncio>=1.4.0",
+]
