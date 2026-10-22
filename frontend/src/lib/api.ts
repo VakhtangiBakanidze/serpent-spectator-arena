@@ -1,12 +1,21 @@
 /**
- * Single entry point for every backend call. Currently fully mocked in memory.
- * Swap the implementations here for real fetch() calls when a backend exists.
+ * Single entry point for every backend call.
+ *
+ * In test environment (Vitest sets import.meta.env.MODE === "test") the
+ * exported `api` resolves to the in-memory `mockApi` so existing tests keep
+ * passing without any network access.  In all other environments `api`
+ * resolves to `realApi` which talks to the FastAPI backend at
+ * http://localhost:8000 using HTTP-only session cookies.
  */
 import { createGame, type GameState, type Mode } from "./snake";
 
 export type User = { username: string; email: string };
 export type ScoreEntry = { username: string; score: number; mode: Mode; date: string };
 export type LivePlayer = { id: string; username: string; mode: Mode; state: GameState };
+
+// ---------------------------------------------------------------------------
+// Mock (in-memory) implementation — kept intact so tests pass
+// ---------------------------------------------------------------------------
 
 type StoredUser = User & { password: string };
 
@@ -33,7 +42,7 @@ export function resetMockDb() {
 }
 resetMockDb();
 
-export const api = {
+const mockApi = {
   async signUp(username: string, email: string, password: string): Promise<User> {
     await delay();
     username = username.trim();
@@ -97,3 +106,54 @@ export const api = {
     ].map((p) => ({ ...p, state: createGame(p.mode) }));
   },
 };
+
+// ---------------------------------------------------------------------------
+// Real HTTP implementation — talks to FastAPI at localhost:8000
+// ---------------------------------------------------------------------------
+
+const BASE = "http://localhost:8000";
+
+async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
+  const res = await fetch(`${BASE}${path}`, {
+    ...init,
+    credentials: "include",
+    headers: { "Content-Type": "application/json", ...init.headers },
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({ message: res.statusText }));
+    throw new Error(body.message ?? res.statusText);
+  }
+  if (res.status === 204) return undefined as T;
+  return res.json();
+}
+
+const realApi = {
+  async signUp(username: string, email: string, password: string): Promise<User> {
+    return request("/auth/signup", { method: "POST", body: JSON.stringify({ username, email, password }) });
+  },
+  async logIn(email: string, password: string): Promise<User> {
+    return request("/auth/login", { method: "POST", body: JSON.stringify({ email, password }) });
+  },
+  async logOut(): Promise<void> {
+    await request("/auth/logout", { method: "POST" });
+  },
+  async getCurrentUser(): Promise<User | null> {
+    return request<User>("/auth/me").catch(() => null);
+  },
+  async getLeaderboard(mode?: Mode): Promise<ScoreEntry[]> {
+    const qs = mode ? `?mode=${encodeURIComponent(mode)}` : "";
+    return request(`/leaderboard${qs}`);
+  },
+  async submitScore(score: number, mode: Mode): Promise<ScoreEntry> {
+    return request("/scores", { method: "POST", body: JSON.stringify({ score, mode }) });
+  },
+  async getLivePlayers(): Promise<LivePlayer[]> {
+    return request("/live");
+  },
+};
+
+// ---------------------------------------------------------------------------
+// Export — use mock in Vitest, real otherwise
+// ---------------------------------------------------------------------------
+
+export const api = import.meta.env.MODE === "test" ? mockApi : realApi;
