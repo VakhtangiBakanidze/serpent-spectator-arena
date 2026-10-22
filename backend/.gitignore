@@ -1,0 +1,63 @@
+# ── Python ────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.pyc
+
+# ── uv / pip ──────────────────────────────────────────
+.venv/
+venv/
+env/
+*.egg-info/
+dist/
+build/
+*.egg
+.eggs/
+pip-wheel-metadata/
+MANIFEST
+
+# ── uv cache ──────────────────────────────────────────
+.uv/
+uv.lock.bak
+
+# ── Testing ───────────────────────────────────────────
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
+*.lcov
+.tox/
+.nox/
+
+# ── Type checkers ─────────────────────────────────────
+.mypy_cache/
+.dmypy.json
+dmypy.json
+.pyright/
+.ruff_cache/
+
+# ── Environment & secrets ─────────────────────────────
+.env
+.env.*
+!.env.example
+*.secret
+secrets.json
+
+# ── IDEs / editors ────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# ── Logs & databases ──────────────────────────────────
+*.log
+*.sqlite
+*.sqlite3
+*.db
+
+# ── OS ────────────────────────────────────────────────
+Thumbs.db
