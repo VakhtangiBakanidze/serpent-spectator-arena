@@ -26,6 +26,12 @@ uv sync
 
 ## Running the Server
 
+Using `make`:
+```bash
+make run
+```
+
+Or using `uv` directly:
 ```bash
 uv run uvicorn backend.main:app --reload
 ```
