@@ -53,3 +53,4 @@ def test_full_spectator_and_game_flow(client: TestClient):
         snapshot = ws.receive_json()
         assert snapshot["type"] == "snapshot"
         assert len(snapshot["players"]) >= 3
+

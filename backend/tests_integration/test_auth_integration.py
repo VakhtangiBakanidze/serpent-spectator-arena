@@ -92,3 +92,4 @@ def test_auth_duplicate_constraints(client: TestClient):
     })
     assert res_dup_username.status_code == 409
     assert "Username already taken" in res_dup_username.json()["detail"]
+

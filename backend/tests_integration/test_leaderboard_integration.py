@@ -83,3 +83,4 @@ def test_leaderboard_top_10_limit(client: TestClient):
     # Top score should be 150, 10th should be 60
     assert scores[0]["score"] == 150
     assert scores[-1]["score"] == 60
+

@@ -60,3 +60,4 @@ def client(integration_engine) -> Generator[TestClient, None, None]:
         yield c
 
     app.dependency_overrides.clear()
+
