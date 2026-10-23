@@ -108,10 +108,15 @@ const mockApi = {
 };
 
 // ---------------------------------------------------------------------------
-// Real HTTP implementation — talks to FastAPI at localhost:8000
+// Real HTTP implementation — talks to FastAPI at localhost:8000 or reverse-proxy path
 // ---------------------------------------------------------------------------
 
-const BASE = "http://localhost:8000";
+const BASE =
+  import.meta.env.VITE_API_BASE_URL !== undefined
+    ? import.meta.env.VITE_API_BASE_URL
+    : typeof window !== "undefined" && window.location.port !== "5173" && import.meta.env.MODE !== "test"
+      ? ""
+      : "http://localhost:8000";
 
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   const res = await fetch(`${BASE}${path}`, {

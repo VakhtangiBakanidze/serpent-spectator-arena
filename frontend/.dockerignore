@@ -1,0 +1,8 @@
+node_modules
+.tanstack
+.nitro
+.wrangler
+dist
+build
+.git
+.coverage

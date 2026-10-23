@@ -1,0 +1,25 @@
+services:
+  - type: web
+    name: serpent-spectator-arena
+    runtime: docker
+    plan: free
+    region: frankfurt
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    healthCheckPath: /live
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: serpent-spectator-db
+          property: connectionString
+      - key: NODE_ENV
+        value: production
+      - key: PYTHONUNBUFFERED
+        value: "1"
+
+databases:
+  - name: serpent-spectator-db
+    databaseName: serpent_arena
+    user: serpent
+    plan: free
+    region: frankfurt

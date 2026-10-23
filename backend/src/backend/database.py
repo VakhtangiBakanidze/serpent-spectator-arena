@@ -3,9 +3,11 @@ from __future__ import annotations
 
 import hashlib
 import hmac
+import logging
 import os
 import random
 import secrets
+import time
 from datetime import datetime, timezone
 from typing import Any, Generator
 
@@ -285,14 +287,32 @@ def seed_scores(db: Session) -> None:
     db.commit()
 
 
-def init_db(target_engine=None) -> None:
-    """Create all tables and seed initial demo data."""
+logger = logging.getLogger(__name__)
+
+
+def init_db(target_engine=None, max_retries: int = 5, retry_delay: float = 2.0) -> None:
+    """Create all tables and seed initial demo data with connection retry support."""
     eng = target_engine or engine
-    Base.metadata.create_all(bind=eng)
-    with Session(eng) as session:
-        seed_users(session)
-        seed_scores(session)
-    seed_live_players()
+    for attempt in range(1, max_retries + 1):
+        try:
+            Base.metadata.create_all(bind=eng)
+            with Session(eng) as session:
+                seed_users(session)
+                seed_scores(session)
+            seed_live_players()
+            break
+        except Exception as exc:
+            if attempt == max_retries:
+                logger.error("Failed to initialize database after %d attempts: %s", attempt, exc)
+                raise
+            logger.warning(
+                "Database connection attempt %d/%d failed (%s). Retrying in %.1fs...",
+                attempt,
+                max_retries,
+                exc,
+                retry_delay,
+            )
+            time.sleep(retry_delay)
 
 
 def reset_db(target_engine=None) -> None:

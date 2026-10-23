@@ -1,0 +1,46 @@
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: serpent-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: serpent
+      POSTGRES_PASSWORD: serpent_secret
+      POSTGRES_DB: serpent_arena
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U serpent -d serpent_arena"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - serpent-network
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: serpent-app
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql+psycopg://serpent:serpent_secret@db:5432/serpent_arena
+    ports:
+      - "80:80"
+      - "8080:80"
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - serpent-network
+
+volumes:
+  postgres_data:
+    name: serpent_postgres_data
+
+networks:
+  serpent-network:
+    name: serpent-network
+    driver: bridge

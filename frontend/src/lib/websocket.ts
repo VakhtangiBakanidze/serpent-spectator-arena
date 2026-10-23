@@ -1,7 +1,18 @@
 import { useEffect, useRef, useState } from "react";
 import type { LivePlayer } from "./api";
 
-const WS_URL = "ws://localhost:8000/ws/live";
+function getWebSocketUrl(): string {
+  if (import.meta.env.VITE_WS_URL) {
+    return import.meta.env.VITE_WS_URL;
+  }
+  if (typeof window !== "undefined" && window.location.port !== "5173" && import.meta.env.MODE !== "test") {
+    const proto = window.location.protocol === "https:" ? "wss:" : "ws:";
+    return `${proto}//${window.location.host}/ws/live`;
+  }
+  return "ws://localhost:8000/ws/live";
+}
+
+const WS_URL = getWebSocketUrl();
 
 export function useWebSocketLivePlayers() {
   const [players, setPlayers] = useState<LivePlayer[]>([]);
