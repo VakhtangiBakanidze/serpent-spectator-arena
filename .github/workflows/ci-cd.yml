@@ -14,8 +14,8 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  backend-tests:
-    name: Backend tests
+  backend-unit-tests:
+    name: Backend unit tests
     runs-on: ubuntu-latest
     steps:
       - name: Check out repository
@@ -31,9 +31,30 @@ jobs:
         working-directory: backend
         run: uv sync --frozen --python 3.13
 
-      - name: Run backend tests
+      - name: Run backend unit tests
         working-directory: backend
-        run: uv run --frozen --python 3.13 pytest tests/ tests_integration/ -v
+        run: uv run --frozen --python 3.13 pytest tests/ -v
+
+  backend-integration-tests:
+    name: Backend integration tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+          cache-dependency-glob: backend/uv.lock
+
+      - name: Install backend dependencies
+        working-directory: backend
+        run: uv sync --frozen --python 3.13
+
+      - name: Run backend integration tests
+        working-directory: backend
+        run: uv run --frozen --python 3.13 pytest tests_integration/ -v
 
   frontend-tests:
     name: Frontend tests
@@ -58,7 +79,8 @@ jobs:
   deploy:
     name: Deploy to Render
     needs:
-      - backend-tests
+      - backend-unit-tests
+      - backend-integration-tests
       - frontend-tests
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest

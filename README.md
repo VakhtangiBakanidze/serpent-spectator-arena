@@ -61,9 +61,10 @@ must stay in PostgreSQL.
 
 ## GitHub Actions CI/CD
 
-The [CI/CD workflow](./.github/workflows/ci-cd.yml) runs backend and frontend
-tests for pull requests and pushes to `main`. When both test jobs pass on a
-push to `main`, it asks Render to deploy that exact commit.
+The [CI/CD workflow](./.github/workflows/ci-cd.yml) runs backend unit tests,
+backend integration tests, and frontend tests as separate jobs for pull
+requests and pushes to `main`. When all three test jobs pass on a push to
+`main`, it asks Render to deploy that exact commit.
 
 To enable deployments:
 
