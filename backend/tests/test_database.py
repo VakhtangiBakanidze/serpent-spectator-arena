@@ -63,3 +63,4 @@ def test_postgres_url_normalization():
     heroku_style = "postgres://user:pass@localhost:5432/snake"
     normalized_heroku = heroku_style.replace("postgres://", "postgresql+psycopg://", 1)
     assert normalized_heroku == "postgresql+psycopg://user:pass@localhost:5432/snake"
+

@@ -57,16 +57,29 @@ uv run uvicorn backend.main:app --reload --host 0.0.0.0 --port 8080
 
 ## Running Tests
 
+### Unit Tests
 ```bash
-uv run pytest tests/ -v
+make test
+# or: uv run pytest tests/ -v
+```
+
+### Integration Tests (with SQLite)
+```bash
+make test-integration
+# or: uv run pytest tests_integration/ -v
+```
+
+### All Tests (Unit + Integration)
+```bash
+make test-all
+# or: uv run pytest tests/ tests_integration/ -v
 ```
 
 To run a specific test file:
 
 ```bash
 uv run pytest tests/test_auth.py -v
-uv run pytest tests/test_leaderboard.py -v
-uv run pytest tests/test_live.py -v
+uv run pytest tests_integration/test_auth_integration.py -v
 ```
 
 ---
