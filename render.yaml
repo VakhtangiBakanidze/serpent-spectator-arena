@@ -4,6 +4,7 @@ services:
     runtime: docker
     plan: free
     region: frankfurt
+    autoDeployTrigger: "off"
     dockerfilePath: ./Dockerfile
     dockerContext: .
     healthCheckPath: /live

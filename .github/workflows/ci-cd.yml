@@ -1,0 +1,79 @@
+name: CI/CD
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+concurrency:
+  group: render-deploy-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  backend-tests:
+    name: Backend tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+          cache-dependency-glob: backend/uv.lock
+
+      - name: Install backend dependencies
+        working-directory: backend
+        run: uv sync --frozen --python 3.13
+
+      - name: Run backend tests
+        working-directory: backend
+        run: uv run --frozen --python 3.13 pytest tests/ tests_integration/ -v
+
+  frontend-tests:
+    name: Frontend tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: bun install --frozen-lockfile
+
+      - name: Run frontend tests
+        working-directory: frontend
+        run: bun run test
+
+  deploy:
+    name: Deploy to Render
+    needs:
+      - backend-tests
+      - frontend-tests
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger Render deploy for this commit
+        env:
+          RENDER_DEPLOY_HOOK_URL: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
+          GITHUB_SHA: ${{ github.sha }}
+        run: |
+          if [ -z "$RENDER_DEPLOY_HOOK_URL" ]; then
+            echo "::error::Add the RENDER_DEPLOY_HOOK_URL repository secret before deploying."
+            exit 1
+          fi
+
+          curl --fail --show-error --silent \
+            --request POST \
+            --output /dev/null \
+            "${RENDER_DEPLOY_HOOK_URL}&ref=${GITHUB_SHA}"

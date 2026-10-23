@@ -59,6 +59,26 @@ the database before it expires to retain its data; upgrade the web service to
 avoid spin-downs. The web service filesystem is ephemeral, so application data
 must stay in PostgreSQL.
 
+## GitHub Actions CI/CD
+
+The [CI/CD workflow](./.github/workflows/ci-cd.yml) runs backend and frontend
+tests for pull requests and pushes to `main`. When both test jobs pass on a
+push to `main`, it asks Render to deploy that exact commit.
+
+To enable deployments:
+
+1. In Render, open the `serpent-spectator-arena` web service's **Settings** and
+   disable automatic deploys. The Blueprint already sets `autoDeployTrigger:
+   off`; apply the Blueprint if the service was created before this setting was
+   added.
+2. In the service's **Settings**, copy its **Deploy Hook** URL.
+3. In the GitHub repository, go to **Settings > Secrets and variables >
+   Actions > New repository secret**. Create `RENDER_DEPLOY_HOOK_URL` with the
+   copied URL as its value.
+
+Keep the deploy hook private. Do not add its URL to source files or workflow
+logs. Pull requests run tests only and never deploy.
+
 ### Demo Accounts
 
 The database is automatically seeded on startup with the following accounts:
