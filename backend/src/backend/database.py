@@ -1,24 +1,86 @@
-"""In-memory mock database and helper utilities."""
+"""SQLAlchemy database setup, models, and in-memory live player simulation."""
 from __future__ import annotations
 
-import copy
 import hashlib
 import hmac
 import os
 import random
-from datetime import date
-from typing import Any
+import secrets
+from datetime import datetime, timezone
+from typing import Any, Generator
+
+from sqlalchemy import Column, DateTime, Integer, String, create_engine
+from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 
 from .models import Direction, GameState, LivePlayer, Mode, Point, ScoreEntry
 
 # ---------------------------------------------------------------------------
-# Storage
+# Database URL & Engine Configuration (Postgres and SQLite)
 # ---------------------------------------------------------------------------
 
-users: dict[str, dict[str, Any]] = {}          # email -> {username, email, hashed_password}
-sessions: dict[str, str] = {}                   # session_token -> username
-scores: list[dict[str, Any]] = []              # list of ScoreEntry dicts
-live_players: dict[str, dict[str, Any]] = {}   # player_id -> LivePlayer-ish dict
+DEFAULT_DB_URL = "sqlite:///./serpent.db"
+DATABASE_URL = os.getenv("DATABASE_URL", DEFAULT_DB_URL)
+
+# Normalize PostgreSQL URLs for psycopg 3
+if DATABASE_URL.startswith("postgres://"):
+    DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql+psycopg://", 1)
+elif DATABASE_URL.startswith("postgresql://") and not DATABASE_URL.startswith("postgresql+"):
+    DATABASE_URL = DATABASE_URL.replace("postgresql://", "postgresql+psycopg://", 1)
+
+connect_args = {"check_same_thread": False} if DATABASE_URL.startswith("sqlite") else {}
+
+engine = create_engine(DATABASE_URL, connect_args=connect_args)
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+
+
+def get_db() -> Generator[Session, None, None]:
+    """FastAPI dependency that yields a database session."""
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
+
+# ---------------------------------------------------------------------------
+# SQLAlchemy Models
+# ---------------------------------------------------------------------------
+
+class Base(DeclarativeBase):
+    pass
+
+
+def utc_now() -> datetime:
+    return datetime.now(timezone.utc)
+
+
+class UserDB(Base):
+    __tablename__ = "users"
+
+    id = Column(Integer, primary_key=True, index=True)
+    username = Column(String, unique=True, index=True, nullable=False)
+    email = Column(String, unique=True, index=True, nullable=False)
+    hashed_password = Column(String, nullable=False)
+    created_at = Column(DateTime(timezone=True), default=utc_now)
+
+
+class SessionDB(Base):
+    __tablename__ = "sessions"
+
+    token = Column(String, primary_key=True, index=True)
+    username = Column(String, index=True, nullable=False)
+    created_at = Column(DateTime(timezone=True), default=utc_now)
+
+
+class ScoreDB(Base):
+    __tablename__ = "scores"
+
+    id = Column(Integer, primary_key=True, index=True)
+    username = Column(String, index=True, nullable=False)
+    score = Column(Integer, nullable=False)
+    mode = Column(String, nullable=False)
+    date = Column(String, nullable=False)
+    created_at = Column(DateTime(timezone=True), default=utc_now)
 
 
 # ---------------------------------------------------------------------------
@@ -43,14 +105,16 @@ def verify_password(plain: str, hashed_value: str) -> bool:
 
 
 # ---------------------------------------------------------------------------
-# Seeded fake live players
+# In-memory ephemeral live players (Snake WebSocket spectator stream)
 # ---------------------------------------------------------------------------
 
 GRID_W = 20
 GRID_H = 20
 
+live_players: dict[str, dict[str, Any]] = {}
 
-def _make_snake(head_x: int, head_y: int, direction: Direction, length: int) -> list[dict]:
+
+def _make_snake(head_x: int, head_y: int, direction: Direction, length: int) -> list[dict[str, int]]:
     """Build a snake body trailing behind the head in the opposite direction."""
     dx, dy = 0, 0
     if direction == Direction.right:
@@ -75,10 +139,14 @@ def seed_live_players() -> None:
         "username": "SlitherBot",
         "mode": Mode.walls.value,
         "state": {
-            "width": GRID_W, "height": GRID_H,
+            "width": GRID_W,
+            "height": GRID_H,
             "snake": _make_snake(8, 5, Direction.right, 5),
-            "dir": Direction.right.value, "pendingDir": Direction.right.value,
-            "food": {"x": 14, "y": 3}, "score": 240, "alive": True,
+            "dir": Direction.right.value,
+            "pendingDir": Direction.right.value,
+            "food": {"x": 14, "y": 3},
+            "score": 240,
+            "alive": True,
             "mode": Mode.walls.value,
         },
     }
@@ -87,10 +155,14 @@ def seed_live_players() -> None:
         "username": "PhantomSnek",
         "mode": Mode.pass_through.value,
         "state": {
-            "width": GRID_W, "height": GRID_H,
+            "width": GRID_W,
+            "height": GRID_H,
             "snake": _make_snake(10, 12, Direction.down, 7),
-            "dir": Direction.down.value, "pendingDir": Direction.down.value,
-            "food": {"x": 6, "y": 17}, "score": 380, "alive": True,
+            "dir": Direction.down.value,
+            "pendingDir": Direction.down.value,
+            "food": {"x": 6, "y": 17},
+            "score": 380,
+            "alive": True,
             "mode": Mode.pass_through.value,
         },
     }
@@ -99,10 +171,14 @@ def seed_live_players() -> None:
         "username": "CobraClaw",
         "mode": Mode.walls.value,
         "state": {
-            "width": GRID_W, "height": GRID_H,
+            "width": GRID_W,
+            "height": GRID_H,
             "snake": _make_snake(15, 15, Direction.left, 6),
-            "dir": Direction.left.value, "pendingDir": Direction.left.value,
-            "food": {"x": 2, "y": 11}, "score": 310, "alive": True,
+            "dir": Direction.left.value,
+            "pendingDir": Direction.left.value,
+            "food": {"x": 2, "y": 11},
+            "score": 310,
+            "alive": True,
             "mode": Mode.walls.value,
         },
     }
@@ -111,10 +187,14 @@ def seed_live_players() -> None:
         "username": "NeonViper",
         "mode": Mode.pass_through.value,
         "state": {
-            "width": GRID_W, "height": GRID_H,
+            "width": GRID_W,
+            "height": GRID_H,
             "snake": _make_snake(3, 17, Direction.up, 4),
-            "dir": Direction.up.value, "pendingDir": Direction.up.value,
-            "food": {"x": 18, "y": 2}, "score": 150, "alive": True,
+            "dir": Direction.up.value,
+            "pendingDir": Direction.up.value,
+            "food": {"x": 18, "y": 2},
+            "score": 150,
+            "alive": True,
             "mode": Mode.pass_through.value,
         },
     }
@@ -144,26 +224,20 @@ def tick_live_players() -> None:
         new_x = (head["x"] + dx) % w
         new_y = (head["y"] + dy) % h
 
-        # Shift snake (keep length at most 5 for sim simplicity)
         new_snake = [{"x": new_x, "y": new_y}] + state["snake"][:4]
         state["snake"] = new_snake
         state["score"] += 1
 
 
-def reset_db() -> None:
-    """Reset all in-memory state (used in tests)."""
-    users.clear()
-    sessions.clear()
-    scores.clear()
-    seed_live_players()
-
-
 # ---------------------------------------------------------------------------
-# Seeded fake users & scores
+# Seeding Database (Users, Scores)
 # ---------------------------------------------------------------------------
 
-def seed_users() -> None:
-    """Seed a handful of demo user accounts."""
+def seed_users(db: Session) -> None:
+    """Seed demo accounts if users table is empty."""
+    if db.query(UserDB).first() is not None:
+        return
+
     demo_accounts = [
         ("neonviper",   "neonviper@snake.dev",   "demo123"),
         ("pixelpython", "pixelpython@snake.dev", "demo123"),
@@ -172,56 +246,62 @@ def seed_users() -> None:
         ("phantomsnek", "phantomsnek@snake.dev", "demo123"),
     ]
     for username, email, password in demo_accounts:
-        users[email] = {
-            "username": username,
-            "email": email,
-            "hashed_password": hash_password(password),
-        }
+        user = UserDB(
+            username=username,
+            email=email,
+            hashed_password=hash_password(password),
+        )
+        db.add(user)
+    db.commit()
 
 
-def seed_scores() -> None:
-    """Seed a realistic leaderboard with scores across both modes."""
-    scores.clear()
+def seed_scores(db: Session) -> None:
+    """Seed a realistic leaderboard if scores table is empty."""
+    if db.query(ScoreDB).first() is not None:
+        return
+
     fake_scores = [
-        # walls mode
         ("neonviper",   820, Mode.walls.value,        "2026-10-20"),
         ("cobraclaw",   740, Mode.walls.value,        "2026-10-21"),
         ("slitherbot",  610, Mode.walls.value,        "2026-10-19"),
         ("phantomsnek", 580, Mode.walls.value,        "2026-10-18"),
         ("pixelpython", 430, Mode.walls.value,        "2026-10-22"),
-        # pass-through mode
         ("pixelpython", 950, Mode.pass_through.value, "2026-10-21"),
         ("neonviper",   870, Mode.pass_through.value, "2026-10-20"),
         ("phantomsnek", 760, Mode.pass_through.value, "2026-10-19"),
         ("cobraclaw",   690, Mode.pass_through.value, "2026-10-18"),
         ("slitherbot",  520, Mode.pass_through.value, "2026-10-17"),
-        # extra entries (won't show in top-10 per-mode but visible in combined)
         ("neonviper",   310, Mode.walls.value,        "2026-10-15"),
         ("pixelpython", 290, Mode.pass_through.value, "2026-10-14"),
     ]
     for username, score, mode, recorded_date in fake_scores:
-        scores.append({
-            "username": username,
-            "score":    score,
-            "mode":     mode,
-            "date":     recorded_date,
-        })
+        entry = ScoreDB(
+            username=username,
+            score=score,
+            mode=mode,
+            date=recorded_date,
+        )
+        db.add(entry)
+    db.commit()
 
 
-def seed_all() -> None:
-    """Seed users, scores, and live players."""
-    seed_users()
-    seed_scores()
+def init_db(target_engine=None) -> None:
+    """Create all tables and seed initial demo data."""
+    eng = target_engine or engine
+    Base.metadata.create_all(bind=eng)
+    with Session(eng) as session:
+        seed_users(session)
+        seed_scores(session)
     seed_live_players()
 
 
-def reset_db() -> None:
-    """Reset all in-memory state (used in tests)."""
-    users.clear()
-    sessions.clear()
-    scores.clear()
+def reset_db(target_engine=None) -> None:
+    """Reset database tables and seed live players."""
+    eng = target_engine or engine
+    Base.metadata.drop_all(bind=eng)
+    Base.metadata.create_all(bind=eng)
     seed_live_players()
 
 
-# Seed on module load
-seed_all()
+# Seed in-memory live players on module load
+seed_live_players()

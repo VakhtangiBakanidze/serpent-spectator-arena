@@ -78,15 +78,16 @@ backend/
 ├── src/backend/
 │   ├── main.py          # FastAPI app factory + CORS middleware
 │   ├── models.py        # Pydantic schemas (User, ScoreEntry, GameState, …)
-│   ├── database.py      # In-memory mock database (users, sessions, scores, live players)
+│   ├── database.py      # SQLAlchemy setup, models (UserDB, SessionDB, ScoreDB), live players
 │   ├── auth.py          # Session cookie helpers + get_current_user dependency
 │   └── routers/
 │       ├── auth.py      # POST /auth/signup  /auth/login  /auth/logout  GET /auth/me
 │       ├── leaderboard.py  # GET /leaderboard  POST /scores
 │       └── live.py      # GET /live  WS /ws/live
 └── tests/
-    ├── conftest.py      # Fixtures: reset DB between tests, HTTP client, authed client
+    ├── conftest.py      # Fixtures: in-memory SQLite DB, HTTP client, authed client
     ├── test_auth.py
+    ├── test_database.py
     ├── test_leaderboard.py
     └── test_live.py
 ```
@@ -105,14 +106,22 @@ uv add --dev <package>
 
 ---
 
-## Environment Variables
+## Database Configuration
 
-No `.env` file is required to run locally — the server starts with sensible defaults.  
-When moving to a real database, create a `.env` file (never commit it):
+The backend uses **SQLAlchemy 2.0** with support for both **SQLite** and **PostgreSQL**.
 
-```env
-# Example — not used yet
-DATABASE_URL=postgresql://user:password@localhost:5432/serpent
+### 1. SQLite (Default)
+By default, the server uses SQLite (`sqlite:///./serpent.db`). No setup or external services required.
+
+### 2. PostgreSQL
+To use PostgreSQL, set the `DATABASE_URL` environment variable:
+
+```bash
+export DATABASE_URL="postgresql://user:password@localhost:5432/serpent"
+# or run directly:
+DATABASE_URL="postgresql://user:password@localhost:5432/serpent" uv run uvicorn backend.main:app --reload
+```
+Both `postgresql://` and `postgres://` connection strings are supported (using `psycopg` 3). On startup, tables are automatically initialized and demo accounts/scores are seeded.
 SECRET_KEY=change-me
 ```
 

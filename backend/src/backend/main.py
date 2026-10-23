@@ -1,14 +1,28 @@
 """FastAPI application factory."""
 from __future__ import annotations
 
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from .database import init_db
 from .routers import auth, leaderboard, live
 
 
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Initialize database tables and seed demo data
+    init_db()
+    yield
+
+
 def create_app() -> FastAPI:
-    app = FastAPI(title="Serpent Spectator Arena API", version="1.0.0")
+    app = FastAPI(
+        title="Serpent Spectator Arena API",
+        version="1.0.0",
+        lifespan=lifespan,
+    )
 
     app.add_middleware(
         CORSMiddleware,
@@ -34,4 +48,3 @@ def create_app() -> FastAPI:
 
 
 app = create_app()
-
